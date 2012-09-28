@@ -11,7 +11,7 @@ try:
 except:
     import json
 
-class Pusher():
+class PusherAgent():
     def __init__(self, applicationKey, encryption=False, secret=None, userdata={}):
         self.channels = {}
 
@@ -61,6 +61,7 @@ class Pusher():
 
             data['auth'] = authKey
             data['channel_data'] = json.dumps(self.userdata)
+
         elif channelName.startswith('private-'):
             authKey = self._generatePrivateAuthKey(self.connection.socket_id,
                                                    self.applicationKey,
@@ -70,7 +71,7 @@ class Pusher():
             data['auth'] = authKey
         else:
             authKey = ""
-
+        
         self.connection._send_event('pusher:subscribe', data)
 
         self.channels[channelName] = Channel(channelName)

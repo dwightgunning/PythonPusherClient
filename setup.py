@@ -3,7 +3,7 @@ from setuptools import setup
 VERSION = "0.1.0"
 
 setup(
-    name="pusherclient",
+    name="pusher-agent",
     version=VERSION,
     description="Pusher websocket client for python",
     author="Erik Kulyk",
@@ -12,5 +12,5 @@ setup(
     url="",
     requires=["websocket",
              ],
-    packages=["pusherclient"],
+    packages=["pusheragent"],
 )
