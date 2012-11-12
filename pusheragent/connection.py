@@ -6,24 +6,19 @@ except:
 
 from threading import Thread, Timer
 import time
-import logging
 
+import logging
+logging.basicConfig()
 
 class Connection(Thread):
     def __init__(self, eventHandler, url, logLevel=logging.INFO):
         self.socket = None
-
         self.socket_id = ""
-
         self.eventCallbacks = {}
-
         self.eventHandler = eventHandler
-
         self.url = url
-
         self.needsReconnect = False
         self.reconnectInterval = 10
-
         self.pongReceived = False
         self.pongTimeout = 5
 
@@ -33,8 +28,7 @@ class Connection(Thread):
 
         self.state = "initialized"
 
-        self.logger = logging.getLogger()
-        self.logger.addHandler(logging.StreamHandler())
+        self.logger = logging.getLogger(__name__)
         if logLevel == logging.DEBUG:
             websocket.enableTrace(True)
         self.logger.setLevel(logLevel)
@@ -80,40 +74,43 @@ class Connection(Thread):
         self.socket.run_forever()
 
         while (self.needsReconnect):
-            self.logger.info("Attempting to connect again in %s seconds." % self.reconnectInterval)
+            self.logger.debug("Attempting to connect again in %s seconds." % self.reconnectInterval)
             self.state = "unavailable"
             time.sleep(self.reconnectInterval)
             self.socket.run_forever()
 
     def _on_open(self, ws):
-        self.logger.info("Connection: Connection opened")
+        self.logger.debug("Connection: Connection opened")
         self.connectionTimer.start()
 
     def _on_error(self, ws, error):
-        self.logger.info("Connection: Error - %s" % error)
+        self.logger.warn("Connection: Error - %s" % error)
         self.state = "failed"
         self.needsReconnect = True
 
     def _on_message(self, ws, message):
-        self.logger.info("Connection: Message - %s" % message)
-
         # Stop our timeout timer, since we got some data
         self.connectionTimer.cancel()
         self.pingTimer.cancel()
 
         params = self._parse(message)
 
+        self.logger.info('Message received: %s' % message)
+
         if 'event' in params.keys():
             if 'channel' not in params.keys():
                 # We've got a connection event.  Lets handle it.
                 if params['event'] in self.eventCallbacks.keys():
+                    self.logger.debug("Connection: Handling params and firing callbacks")
                     for callback in self.eventCallbacks[params['event']]:
+                        self.logger.info(callback)
                         callback(params['data'])
                 else:
-                    self.logger.info("Connection: Unhandled event")
+                    self.logger.debug("Connection: Unhandled event")
             else:
                 # We've got a channel event.  Lets pass it up to the pusher
                 # so it can be handled by the appropriate channel.
+                self.logger.debug("Connection: Channel event")
                 self.eventHandler(params['event'], 
                                   params['data'], 
                                   params['channel'])
@@ -133,10 +130,11 @@ class Connection(Thread):
         return json.loads(message)
 
     def _send_event(self, eventName, data):
+        self.logger.info('Connection: sending event %s' % eventName)
         self.socket.send(json.dumps({'event':eventName, 'data':data}))
 
     def _send_ping(self):
-        self.logger.info("Connection: ping to pusher")
+        self.logger.debug("Connection: ping to pusher")
         self.socket.send(json.dumps({'event':'pusher:ping', 'data':''}))
         self.pongTimer = Timer(self.pongTimeout, self._check_pong)
         self.pongTimer.start()
@@ -153,10 +151,11 @@ class Connection(Thread):
 
 
     def _connect_handler(self, data):
-        parsed = json.loads(data)
-
-        self.socket_id = parsed['socket_id']
-
+        # parsed = json.loads(data)
+        # self.socket_id = parsed['socket_id'] # original
+        self.socket_id = data['socket_id']
+        
+        self.logger.info('Parsed !')
         self.state = "connected"
 
     def _failed_handler(self, data):

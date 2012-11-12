@@ -11,34 +11,42 @@ try:
 except:
     import json
 
+import logging
+logging.basicConfig()
+
 class PusherAgent():
-    def __init__(self, applicationKey, encryption=False, secret=None, userdata={}):
+    def __init__(self, host="ws.pusherapp.com", port=80, encryption=False, applicationKey=None, secret=None, userdata={}):
+        self.logger = logging.getLogger(__name__)
+
         self.channels = {}
-
         self.secret = secret
-
         self.userdata = userdata
 
-        self.host = "ws.pusherapp.com"
+        self.host = host
         self.encryption = encryption
         if self.encryption:
             self.protocol = "wss"
-            self.port = "443"
+            # self.port = "443"
         else:
             self.protocol = "ws"
-            self.port = "80"
+            # self.port = "80"
+        self.port = port
 
         self.applicationKey = applicationKey
         self.client_id = 'js'
         self.version = '1.7.1'
-        self.path = "/app/%s?client=%s&version=%s" % (self.applicationKey,
+        self.path = "app/%s?client=%s&version=%s" % (self.applicationKey,
                                                       self.client_id,
                                                       self.version)
+        
+
 
         self.url = "%s://%s:%s/%s" % (self.protocol,
                                       self.host,
                                       self.port,
                                       self.path)
+
+        print self.url
 
         self.connection = Connection(self._connectionHandler, self.url)
 
@@ -51,7 +59,9 @@ class PusherAgent():
     def subscribe(self, channelName): 
         data = {}
         data['channel'] = channelName
-
+        
+        self.logger.info('Subscribing to channel %s' % channelName)
+        
         if channelName.startswith('presence-'):
             authKey = self._generatePresenceAuthKey(self.connection.socket_id,
                                                     self.applicationKey,
@@ -72,10 +82,9 @@ class PusherAgent():
         else:
             authKey = ""
         
-        self.connection._send_event('pusher:subscribe', data)
-
+        self.connection._send_event('pusher:subscribe', data)        
         self.channels[channelName] = Channel(channelName)
-
+        self.logger.info('Subscribed to %s' % channelName)
         return self.channels[channelName]
 
     def unsubscribe(self, channelName):
@@ -96,6 +105,7 @@ class PusherAgent():
 
     def _connectionHandler(self, eventName, data, channelName):
         if channelName in self.channels.keys():
+            self.logger.debug('PusherAgent distributing message to %s' % channelName)
             self.channels[channelName]._handle_event(eventName, data)
 
 
