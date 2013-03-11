@@ -12,7 +12,6 @@ except:
     import json
 
 import logging
-logging.basicConfig()
 
 class PusherAgent():
     def __init__(self, host="ws.pusherapp.com", port=80, encryption=False, applicationKey=None, secret=None, userdata={}):
@@ -45,8 +44,6 @@ class PusherAgent():
                                       self.host,
                                       self.port,
                                       self.path)
-
-        print self.url
 
         self.connection = Connection(self._connectionHandler, self.url)
 
@@ -101,7 +98,7 @@ class PusherAgent():
         if channelName in self.channels.keys():
             channel = self.channels[channelName]
 
-        return channel        
+        return channel
 
     def _connectionHandler(self, eventName, data, channelName):
         if channelName in self.channels.keys():

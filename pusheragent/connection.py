@@ -8,7 +8,6 @@ from threading import Thread, Timer
 import time
 
 import logging
-logging.basicConfig()
 
 class Connection(Thread):
     def __init__(self, eventHandler, url, logLevel=logging.INFO):
@@ -19,12 +18,12 @@ class Connection(Thread):
         self.url = url
         self.needsReconnect = False
         self.reconnectInterval = 10
-        self.pongReceived = False
-        self.pongTimeout = 5
+        self.pingReceived = False
+        self.pingTimeout = 30
 
         self.bind("pusher:connection_established", self._connect_handler)
         self.bind("pusher:connection_failed", self._failed_handler)
-        self.bind("pusher:pong", self._pong_handler)
+        self.bind("pusher:ping", self._ping_handler)
 
         self.state = "initialized"
 
@@ -40,10 +39,10 @@ class Connection(Thread):
         # expect a pusher heartbeat message every 5 minutes.  Adding 5 sec to
         # account for small timing delays which may cause messages to not be
         # received in exact 5 minute intervals.
-        self.connectionTimeout = 305
+        self.connectionTimeout = 315
         self.connectionTimer = Timer(self.connectionTimeout, self._connectionTimedOut)
 
-        self.pingInterval = 115
+        self.pingInterval = 120
         self.pingTimer = Timer(self.pingInterval, self._send_ping)
         self.pingTimer.start()
 
@@ -84,7 +83,7 @@ class Connection(Thread):
         self.connectionTimer.start()
 
     def _on_error(self, ws, error):
-        self.logger.warn("Connection: Error - %s" % error)
+        self.logger.error("Pusher Client Connection: Error - %s" % error)
         self.state = "failed"
         self.needsReconnect = True
 
@@ -95,7 +94,7 @@ class Connection(Thread):
 
         params = self._parse(message)
 
-        self.logger.info('Message received: %s' % message)
+        self.logger.info('Message received: %s' % str(message))
 
         if 'event' in params.keys():
             if 'channel' not in params.keys():
@@ -135,37 +134,38 @@ class Connection(Thread):
 
     def _send_ping(self):
         self.logger.debug("Connection: ping to pusher")
-        self.socket.send(json.dumps({'event':'pusher:ping', 'data':''}))
-        self.pongTimer = Timer(self.pongTimeout, self._check_pong)
-        self.pongTimer.start()
 
-    def _check_pong(self):
-        self.pongTimer.cancel()
-        if (self.pongReceived == True):
-            self.pongReceived = False
+        self.socket.send(json.dumps({'event':'pusher:ping', 'data':''}))
+        self.pingTimer = Timer(self.pingTimeout, self._check_ping)
+        self.pingTimer.start()
+
+    def _check_ping(self):
+        self.pingTimer.cancel()
+        if (self.pingReceived == True):
+            self.pingReceived = False
         else:
-            self.logger.info("Did not receive pong in time.  Will attempt to reconnect.")
+            self.logger.info("Did not receive ping in time.  Will attempt to reconnect.")
             self.state = "failed"
             self.needsReconnect = True
             self.socket.close()
-
 
     def _connect_handler(self, data):
         # parsed = json.loads(data)
         # self.socket_id = parsed['socket_id'] # original
         self.socket_id = data['socket_id']
         
-        self.logger.info('Parsed !')
         self.state = "connected"
 
     def _failed_handler(self, data):
         parsed = json.loads(data)
-
         self.state = "failed"
 
-    def _pong_handler(self, data):
-	# self. logger.info("Connection: pong from pusher")
-        self.pongReceived = True
+    def _ping_handler(self, data):
+        self.logger.info("Connection: ping from pusher")
+        self.pingReceived = True
+
+        self.logger.info("Connection: returning a pong to pusher")
+        self.socket.send(json.dumps({'event':'pusher:pong', 'data':''}))
 
     def _connectionTimedOut(self):
         self.logger.info("Did not receive any data in time.  Reconnecting.")
