@@ -5,6 +5,8 @@ class Channel():
     def __init__(self, channelName):
         self.logger = logging.getLogger(__name__)
         
+        print __name__
+
         self.name = channelName
         self.event_callbacks = {}
 
@@ -27,4 +29,9 @@ class Channel():
         if eventName in self.event_callbacks.keys():
             for callback in self.event_callbacks[eventName]:
                 self.logger.debug('delegating event to %s' % callback)
-                callback(data)
+                try:
+                    callback(data)
+                except Exception as e:
+                    import sys, traceback
+                    self.logger.exception('Exception')
+                    raise e
