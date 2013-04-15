@@ -1,5 +1,4 @@
 import logging
-logging.basicConfig()
 
 class Channel():
 

@@ -46,8 +46,8 @@ class PusherAgent():
                                       self.path)
 
         self.connection = Connection(self._connectionHandler, self.url)
-
-        thread.start_new_thread(self.connection._connect, ())
+        self.connection.daemon = True
+        self.connection.start()
 
     def disconnect(self):
         self.connection.disconnect()

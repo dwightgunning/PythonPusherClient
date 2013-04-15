@@ -10,7 +10,7 @@ import time
 import logging
 
 class Connection(Thread):
-    def __init__(self, eventHandler, url, logLevel=logging.INFO):
+    def __init__(self, eventHandler, url):
         self.socket = None
         self.socket_id = ""
         self.eventCallbacks = {}
@@ -28,9 +28,8 @@ class Connection(Thread):
         self.state = "initialized"
 
         self.logger = logging.getLogger(__name__)
-        if logLevel == logging.DEBUG:
+        if self.logger.getEffectiveLevel() == logging.DEBUG:
             websocket.enableTrace(True)
-        self.logger.setLevel(logLevel)
 
         # From Martyn's comment at: https://pusher.tenderapp.com/discussions/problems/36-no-messages-received-after-1-idle-minute-heartbeat
         #   "We send a ping every 5 minutes in an attempt to keep connections 
@@ -59,7 +58,13 @@ class Connection(Thread):
         self.socket.close()
 
     def run(self):
-        self._connect()
+        try:
+            self._connect()
+        except:
+            raise
+        finally:
+            self.running = False
+        
 
     def _connect(self):
         self.state = "connecting"
